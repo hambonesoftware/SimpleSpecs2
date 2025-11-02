@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+
+# Local environment
+.env
+
+# macOS
+.DS_Store
+
+runtime_artifacts/
