@@ -10,7 +10,7 @@ dependencies = [
     "sqlmodel==0.0.16",
     "PyMuPDF>=1.24.9",
     "pypdfium2>=4.30.0",
-    "pdfplumber==0.11.3",
+    "pdfplumber==0.11.7",
     "camelot-py[cv]==0.11.0",
     "pytesseract==0.3.10",
     "python-dotenv==1.0.1",
