@@ -12,6 +12,7 @@ import warnings
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Mapping
 
 import fitz  # type: ignore
 import pdfplumber  # type: ignore
@@ -115,6 +116,78 @@ class ParseResult:
             "has_ocr": self.has_ocr,
             "used_mineru": self.used_mineru,
         }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "ParseResult":
+        """Recreate a :class:`ParseResult` from a stored payload."""
+
+        page_entries = payload.get("pages") or []
+        pages: list[ParsedPage] = []
+
+        for entry in page_entries:
+            page_number = int(entry.get("page_number", 0) or 0)
+            width_raw = entry.get("width", 0.0)
+            height_raw = entry.get("height", 0.0)
+            width = float(width_raw) if width_raw is not None else 0.0
+            height = float(height_raw) if height_raw is not None else 0.0
+
+            block_entries = entry.get("blocks") or []
+            blocks: list[ParsedBlock] = []
+            for block in block_entries:
+                bbox_values = block.get("bbox") or (0.0, 0.0, 0.0, 0.0)
+                bbox = tuple(float(value) for value in bbox_values)
+                font_size_raw = block.get("font_size")
+                font_size = (
+                    float(font_size_raw)
+                    if font_size_raw not in (None, "")
+                    else None
+                )
+                blocks.append(
+                    ParsedBlock(
+                        text=str(block.get("text", "")),
+                        bbox=bbox,  # type: ignore[arg-type]
+                        font=block.get("font"),
+                        font_size=font_size,
+                        source=str(block.get("source") or "pymupdf"),
+                    )
+                )
+
+            table_entries = entry.get("tables") or []
+            tables: list[ParsedTable] = []
+            for table in table_entries:
+                table_bbox_values = table.get("bbox") or (0.0, 0.0, 0.0, 0.0)
+                table_bbox = tuple(float(value) for value in table_bbox_values)
+                accuracy_raw = table.get("accuracy")
+                accuracy = (
+                    float(accuracy_raw)
+                    if accuracy_raw not in (None, "")
+                    else None
+                )
+                tables.append(
+                    ParsedTable(
+                        page_number=page_number,
+                        bbox=table_bbox,  # type: ignore[arg-type]
+                        flavor=table.get("flavor"),
+                        accuracy=accuracy,
+                    )
+                )
+
+            pages.append(
+                ParsedPage(
+                    page_number=page_number,
+                    width=width,
+                    height=height,
+                    blocks=blocks,
+                    tables=tables,
+                    is_toc=bool(entry.get("is_toc", False)),
+                )
+            )
+
+        return cls(
+            pages=pages,
+            has_ocr=bool(payload.get("has_ocr", False)),
+            used_mineru=bool(payload.get("used_mineru", False)),
+        )
 
 
 class ParseError(RuntimeError):

@@ -11,6 +11,10 @@ from sqlmodel import Session, select
 from ..config import Settings, get_settings
 from ..database import get_session
 from ..models import Document, DocumentSection
+from ..services.artifact_store import (
+    get_cached_parse_payload,
+    persist_parse_result,
+)
 from ..services.header_match import find_header_occurrences
 from ..services.headers import HeadersLLMClient, extract_headers, flatten_outline
 from ..services.headers_llm_simple import (
@@ -18,7 +22,7 @@ from ..services.headers_llm_simple import (
     get_headers_llm_json,
 )
 from ..services.headers_orchestrator import extract_headers_and_chunks
-from ..services.pdf_native import parse_pdf
+from ..services.pdf_native import ParseResult, parse_pdf
 from ..services.sections import build_and_store_sections
 from ..services.simpleheaders_state import SimpleHeadersState
 
@@ -82,7 +86,14 @@ async def compute_headers(
     parse_impl = parse_pdf
     if headers_router is not None:
         parse_impl = getattr(headers_router, "parse_pdf", parse_pdf)
-    parse_result = parse_impl(document_path, settings=settings)
+    cached_payload = get_cached_parse_payload(session=session, document=document)
+    if cached_payload is not None:
+        parse_result = ParseResult.from_dict(cached_payload)
+    else:
+        parse_result = parse_impl(document_path, settings=settings)
+        persist_parse_result(
+            session=session, document=document, parse_result=parse_result
+        )
 
     client_factory = HeadersLLMClient
     if headers_router is not None:
